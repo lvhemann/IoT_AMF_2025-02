@@ -216,6 +216,55 @@ void loop() {
 
 ```
 
+## Função Deep Sleep
+```bash
+#include <Arduino.h>
+
+// Variável que sobrevive ao deep sleep (fica na RTC Memory)
+RTC_DATA_ATTR int bootCount = 0;
+
+// Função para imprimir motivo do último wakeup
+void printWakeupReason() {
+  esp_sleep_wakeup_cause_t reason = esp_sleep_get_wakeup_cause();
+
+  switch (reason) {
+    case ESP_SLEEP_WAKEUP_EXT0: Serial.println("Acordou por sinal externo usando RTC_IO"); break;
+    case ESP_SLEEP_WAKEUP_EXT1: Serial.println("Acordou por sinal externo usando RTC_CNTL"); break;
+    case ESP_SLEEP_WAKEUP_TIMER: Serial.println("Acordou por temporizador"); break;
+    case ESP_SLEEP_WAKEUP_TOUCHPAD: Serial.println("Acordou por touchpad"); break;
+    case ESP_SLEEP_WAKEUP_ULP: Serial.println("Acordou por ULP"); break;
+    default: Serial.printf("Motivo de wakeup não identificado: %d\n", reason); break;
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000); // espera Serial abrir
+
+  bootCount++;
+  Serial.printf("Boot número: %d\n", bootCount);
+  printWakeupReason();
+
+  // Configura o tempo de deep sleep (em microssegundos)
+  const uint64_t sleepTimeSec = 10;
+  Serial.printf("Entrando em deep sleep por %llu segundos...\n", sleepTimeSec);
+
+  esp_sleep_enable_timer_wakeup(sleepTimeSec * 1000000ULL);
+
+  // Dá tempo de ver a mensagem no Serial antes de dormir
+  delay(2000);
+
+  Serial.println("Indo dormir agora...");
+  Serial.flush();
+  esp_deep_sleep_start();
+}
+
+void loop() {
+  // Não será executado — ESP32 reinicia ao acordar do deep sleep
+}
+
+```
+
 
 
 
