@@ -266,8 +266,233 @@ void loop() {
 ```
 
 
+# Leitura BLE
+## src - Controla tudo
+```bash
+#include <Arduino.h>
+#include "app_ble.h"
+
+static uint32_t lastScan = 0;
+static const uint32_t SCAN_PERIOD_MS = 15000; // roda um scan a cada 15s
+
+void setup() {
+  Serial.begin(115200);
+  while (!Serial) { delay(10); }
+  delay(300);
+
+  Serial.println("\n[Init] BLE RAW Scanner (demo estourar vs limitar)");
+  initBLEScan(); // inicializa BLE e callbacks
+}
+
+void loop() {
+  // dispara um scan periódico bloqueante (termina sozinho por duração ou por limite/heap)
+  if (millis() - lastScan > SCAN_PERIOD_MS) {
+    lastScan = millis();
+    Serial.println("\n🔄 Iniciando varredura BLE...");
+    updateStoredDevices(); // coleta tudo ao redor (ou até bater o limite/heap)
+    // imprime um resumo e o RAW em hex
+    Serial.printf("📊 Dispositivos únicos: %d\n", storedPackets.size());
+    Serial.println("RAW (HEX) separados por ';':");
+    Serial.println(getRawPacketsAsHexString());
+  }
+
+  // telemetria simples de heap
+  static uint32_t lastInfo = 0;
+  if (millis() - lastInfo > 2000) {
+    lastInfo = millis();
+    size_t freeHeap   = ESP.getFreeHeap();
+    size_t minFree    = ESP.getMinFreeHeap();
+    size_t maxAlloc   = ESP.getMaxAllocHeap();
+    Serial.println("=== Memória ===");
+    Serial.printf("Heap livre: %u | Min. já visto: %u | Maior bloco: %u\n",
+                  (unsigned)freeHeap, (unsigned)minFree, (unsigned)maxAlloc);
+  }
+
+  delay(1);
+}
 
 
+```
+## app_ble.h --> Controla o BLE
+
+´´´bash
+#ifndef APP_BLE_H
+#define APP_BLE_H
+
+#include <Arduino.h>
+#include <BLEDevice.h>
+#include <BLEUtils.h>
+#include <BLEScan.h>
+#include <BLEAdvertisedDevice.h>
+#include <vector>
+#include <set>
+#include <string>
+
+// ===== CONFIGURÁVEIS =====
+
+// 0 = SEM LIMITE (didático: pode exaurir heap)
+// 1 = COM LIMITE (recomendado)
+#define BLE_LIMIT_DEVICES 0
+
+// Limite de dispositivos quando BLE_LIMIT_DEVICES = 1
+#ifndef MAX_DEVICES
+#define MAX_DEVICES 200
+#endif
+
+// Duração padrão de um scan (segundos)
+static int SCAN_DURATION = 20;
+
+// Se BLE_LIMIT_DEVICES=1, para o scan ao passar desse uso de heap
+static const float HEAP_STOP_PERCENT = 80.0f;
+
+// ===== INTERNOS =====
+static BLEScan *pBLEScan = nullptr;
+
+struct RawPacket {
+  std::vector<uint8_t> data;
+  std::string mac;
+  int rssi;
+  RawPacket(const uint8_t* payload, int length, const std::string& macAddr, int rssiVal)
+  : mac(macAddr), rssi(rssiVal) {
+    data.assign(payload, payload + length);
+  }
+};
+
+static std::vector<RawPacket> storedPackets;
+static std::set<std::string>  seenMacs;
+
+// --------- util: converte vetor de bytes para HEX string (sem espaços) ---------
+static String bytesToHex(const std::vector<uint8_t>& v) {
+  String s;
+  s.reserve(v.size() * 2);
+  for (auto b : v) {
+    if (b < 0x10) s += '0';
+    s += String(b, HEX);
+  }
+  return s;
+}
+
+// ===== CALLBACK PRINCIPAL =====
+class AllDevicesCallback : public BLEAdvertisedDeviceCallbacks {
+  void onResult(BLEAdvertisedDevice dev) override {
+    // captura TUDO (sem filtro por nome), evitando duplicar por MAC
+    std::string mac = std::string(dev.getAddress().toString().c_str());
+    if (seenMacs.count(mac)) {
+      return;
+    }
+
+    const uint8_t* payload = dev.getPayload();
+    int length = dev.getPayloadLength();
+
+    if (payload && length > 0) {
+#if BLE_LIMIT_DEVICES
+      // ---- MODO SEGURO: IF que limita ----
+      if ((int)storedPackets.size() >= MAX_DEVICES) {
+        Serial.printf("🛑 Limite MAX_DEVICES=%d atingido. Parando scan.\n", MAX_DEVICES);
+        if (pBLEScan) pBLEScan->stop();
+        return;
+      }
+#endif
+      storedPackets.emplace_back(payload, length, mac, dev.getRSSI());
+      seenMacs.insert(mac);
+
+      // log básico
+      Serial.printf("📡 %s | %d bytes | RSSI=%d | RAW=",
+                    mac.c_str(), length, dev.getRSSI());
+      for (int i = 0; i < length; ++i) {
+        if (payload[i] < 0x10) Serial.print('0');
+        Serial.print(payload[i], HEX);
+      }
+      Serial.println();
+
+#if BLE_LIMIT_DEVICES
+      // Checagem de heap (parada preventiva)
+      uint32_t totalHeap = ESP.getHeapSize();
+      uint32_t freeHeap  = ESP.getFreeHeap();
+      float usagePercent = 100.0f * (float)(totalHeap - freeHeap) / (float)totalHeap;
+      if (usagePercent > HEAP_STOP_PERCENT && pBLEScan) {
+        Serial.printf("🛑 Heap em %.2f%% (> %.1f%%). Parando scan.\n",
+                      usagePercent, HEAP_STOP_PERCENT);
+        pBLEScan->stop();
+      }
+#endif
+    }
+  }
+};
+
+static AllDevicesCallback g_cb;
+
+// ===== API =====
+
+inline void initBLEScan() {
+  BLEDevice::init("ESP32_RAW_SCANNER");
+  pBLEScan = BLEDevice::getScan();
+  pBLEScan->setAdvertisedDeviceCallbacks(&g_cb);
+  pBLEScan->setActiveScan(true); // pega payload completo com resposta de scan
+
+  // Parâmetros “rápidos” de varredura (aprox. 20 ms janela/intervalo)
+  esp_ble_scan_params_t scanParams = {
+      .scan_type          = BLE_SCAN_TYPE_ACTIVE,
+      .own_addr_type      = BLE_ADDR_TYPE_PUBLIC,
+      .scan_filter_policy = BLE_SCAN_FILTER_ALLOW_ALL,
+      .scan_interval      = 0x4000, // ~20ms
+      .scan_window        = 0x4000
+  };
+  esp_ble_gap_set_scan_params(&scanParams);
+
+  // Potência alta para captar mais longe (ajuste se precisar)
+  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, ESP_PWR_LVL_P9);
+  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV,     ESP_PWR_LVL_P9);
+  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_SCAN,    ESP_PWR_LVL_P9);
+}
+
+// Limpa estruturas e faz um scan bloqueante
+inline void updateStoredDevices() {
+  if (!pBLEScan) return;
+
+  seenMacs.clear();
+  storedPackets.clear();
+
+  Serial.printf("Heap antes do scan: %u bytes\n", (unsigned)ESP.getFreeHeap());
+  pBLEScan->setAdvertisedDeviceCallbacks(&g_cb);
+  // true = bloqueante; retorna quando terminar ou quando pBLEScan->stop() for chamado
+  pBLEScan->start(SCAN_DURATION, true);
+
+  Serial.printf("Heap depois do scan: %u bytes\n", (unsigned)ESP.getFreeHeap());
+  Serial.printf("Total únicos: %u\n", (unsigned)storedPackets.size());
+
+  // relatório de uso de heap
+  uint32_t totalHeap = ESP.getHeapSize();
+  uint32_t freeHeap  = ESP.getFreeHeap();
+  uint32_t usedHeap  = totalHeap - freeHeap;
+  float usagePercent = (usedHeap / (float)totalHeap) * 100.0f;
+
+  Serial.println("=== Memória do ESP32 ===");
+  Serial.printf("Total heap: %u\n", (unsigned)totalHeap);
+  Serial.printf("Heap livre: %u\n", (unsigned)freeHeap);
+  Serial.printf("Heap usada: %u\n", (unsigned)usedHeap);
+  Serial.printf("Uso: %.2f%%\n", usagePercent);
+  Serial.println("========================");
+
+  pBLEScan->clearResults(); // limpa buffers internos do BLEScan
+}
+
+// Exporta os payloads capturados em HEX, separados por ';'
+inline String getRawPacketsAsHexString() {
+  String out;
+  for (const auto& pkt : storedPackets) {
+    out += bytesToHex(pkt.data);
+    out += ';';
+  }
+  if (out.endsWith(";")) out.remove(out.length() - 1);
+  return out;
+}
+
+#endif // APP_BLE_H
+
+
+
+´´´
 
 
 
