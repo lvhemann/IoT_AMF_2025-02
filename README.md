@@ -218,6 +218,7 @@ void loop() {
 
 ## Função Deep Sleep
 ```bash
+
 #include <Arduino.h>
 
 // Variável que sobrevive ao deep sleep (fica na RTC Memory)
@@ -267,8 +268,11 @@ void loop() {
 
 
 # Leitura BLE
+
 ## src - Controla tudo
+
 ```bash
+
 #include <Arduino.h>
 #include "app_ble.h"
 
@@ -313,9 +317,9 @@ void loop() {
 
 
 ```
-## app_ble.h --> Controla o BLE
+## app_ble.h  Controla o BLE
 
-´´´bash
+```bash
 #ifndef APP_BLE_H
 #define APP_BLE_H
 
@@ -328,7 +332,7 @@ void loop() {
 #include <set>
 #include <string>
 
-// ===== CONFIGURÁVEIS =====
+// Confg
 
 // 0 = SEM LIMITE (didático: pode exaurir heap)
 // 1 = COM LIMITE (recomendado)
@@ -345,7 +349,7 @@ static int SCAN_DURATION = 20;
 // Se BLE_LIMIT_DEVICES=1, para o scan ao passar desse uso de heap
 static const float HEAP_STOP_PERCENT = 80.0f;
 
-// ===== INTERNOS =====
+// INTERNOS 
 static BLEScan *pBLEScan = nullptr;
 
 struct RawPacket {
@@ -372,7 +376,7 @@ static String bytesToHex(const std::vector<uint8_t>& v) {
   return s;
 }
 
-// ===== CALLBACK PRINCIPAL =====
+//  CALLBACK PRINCIPAL 
 class AllDevicesCallback : public BLEAdvertisedDeviceCallbacks {
   void onResult(BLEAdvertisedDevice dev) override {
     // captura TUDO (sem filtro por nome), evitando duplicar por MAC
@@ -422,7 +426,7 @@ class AllDevicesCallback : public BLEAdvertisedDeviceCallbacks {
 
 static AllDevicesCallback g_cb;
 
-// ===== API =====
+//  API 
 
 inline void initBLEScan() {
   BLEDevice::init("ESP32_RAW_SCANNER");
@@ -492,7 +496,8 @@ inline String getRawPacketsAsHexString() {
 
 
 
-´´´
+```
+
 
 
 
