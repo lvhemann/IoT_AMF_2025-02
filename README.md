@@ -499,6 +499,57 @@ inline String getRawPacketsAsHexString() {
 ```
 
 
+##ESP32 + DeepSleep + EEPROM
+```bash
+
+#include <Arduino.h>
+#include <EEPROM.h>
+
+#define EEPROM_SIZE 64       // tamanho mínimo para reservar EEPROM
+#define COUNTER_ADDR 0       // posição onde vamos salvar o contador
+#define SLEEP_TIME_US 10e6   // 10 segundos em microssegundos
+
+int bootCounter = 0;
+
+void setup() {
+  Serial.begin(115200);
+  delay(500);
+
+  // Inicializa EEPROM
+  if (!EEPROM.begin(EEPROM_SIZE)) {
+    Serial.println("Falha ao iniciar EEPROM!");
+    while (1);
+  }
+
+  // Lê contador salvo
+  EEPROM.get(COUNTER_ADDR, bootCounter);
+
+  // Incrementa e salva de volta
+  bootCounter++;
+  EEPROM.put(COUNTER_ADDR, bootCounter);
+  EEPROM.commit();  // importante para gravar na flash
+
+  Serial.printf("ESP32 acordou %d vezes do deep sleep\n", bootCounter);
+
+  // Configura wakeup por timer
+  esp_sleep_enable_timer_wakeup(SLEEP_TIME_US);
+
+  Serial.println("Indo dormir por 10 segundos...");
+  delay(1000);
+
+  esp_deep_sleep_start();
+}
+
+void loop() {
+  // nunca roda, pois depois do deep sleep o ESP32 reinicia no setup()
+}
+
+
+```
+
+
+
+
 
 
 
