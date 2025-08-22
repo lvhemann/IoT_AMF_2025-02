@@ -150,3 +150,135 @@ export default {
 };
 
 ```
+## Com parte visual
+# Código ESP32
+```bash
+#include <WiFi.h>
+#include <HTTPClient.h>
+
+const char* ssid = "";          // 👉 seu Wi-Fi
+const char* password = "";       // 👉 senha
+
+// URL da API no seu Worker
+const char* serverName = "https://workers/api";
+
+// Valores de exemplo
+int A = 12;
+int B = 8;
+String operacao = "soma";  // pode ser: soma, sub, mul, div
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  // Conectar ao Wi-Fi
+  Serial.println("Conectando ao Wi-Fi...");
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nWi-Fi conectado!");
+}
+
+void loop() {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+
+    // Prepara a URL
+    String url = String(serverName) + "?A=" + A + "&B=" + B + "&operacao=" + operacao;
+
+    Serial.println("➡️ Enviando requisição: " + url);
+
+    http.begin(url);
+    int httpResponseCode = http.GET();
+
+    if (httpResponseCode > 0) {
+      Serial.print("✅ HTTP ");
+      Serial.println(httpResponseCode);
+      String payload = http.getString();
+      Serial.println("📥 Resposta do Worker:");
+      Serial.println(payload);
+    } else {
+      Serial.print("❌ Erro HTTP: ");
+      Serial.println(httpResponseCode);
+    }
+
+    http.end();
+  } else {
+    Serial.println("⚠️ Wi-Fi desconectado");
+  }
+
+  delay(10000); // envia a cada 10 segundos
+}
+
+```
+
+# Código Index
+```bash
+export default {
+	async fetch(request, env, ctx) {
+	  const url = new URL(request.url);
+  
+	  // 🚀 API para o ESP32
+	  if (url.pathname === "/api") {
+		// Aqui você poderia salvar em KV ou D1, se quiser persistir os dados
+		return new Response(
+		  JSON.stringify({
+			status: "ok",
+			mensagem: "Recebi os dados do ESP32!",
+			A: 10,
+			B: 20,
+			operacao: "soma",
+			resultado: 30
+		  }),
+		  { headers: { "Content-Type": "application/json" } }
+		);
+	  }
+  
+	  // 🚀 Frontend HTML
+	  if (url.pathname === "/" || url.pathname === "/index.html") {
+		const html = `
+		<!DOCTYPE html>
+		<html lang="pt-BR">
+		<head>
+		  <meta charset="UTF-8" />
+		  <title>ESP32 Operações</title>
+		  <style>
+			body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+			h1 { text-align: center; }
+			table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+			th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
+			th { background: #007BFF; color: white; }
+		  </style>
+		</head>
+		<body>
+		  <h1>📊 Dados do ESP32</h1>
+		  <table>
+			<thead>
+			  <tr><th>A</th><th>B</th><th>Operação</th><th>Resultado</th></tr>
+			</thead>
+			<tbody id="tabela"></tbody>
+		  </table>
+  
+		  <script>
+			async function atualizar() {
+			  const res = await fetch('/api');
+			  const data = await res.json();
+			  document.getElementById("tabela").innerHTML = 
+				'<tr><td>' + data.A + '</td><td>' + data.B + '</td><td>' + data.operacao + '</td><td>' + data.resultado + '</td></tr>';
+			}
+			atualizar();
+			setInterval(atualizar, 5000);
+		  </script>
+		</body>
+		</html>
+		`;
+		return new Response(html, { headers: { "Content-Type": "text/html;charset=UTF-8" } });
+	  }
+  
+	  return new Response("Rota não encontrada!", { status: 404 });
+	}
+  };
+  
+```
