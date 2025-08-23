@@ -282,3 +282,118 @@ export default {
   };
   
 ```
+
+```bash
+
+let ultimoPayload = {
+  A: null,
+  B: null,
+  operacao: "nenhuma",
+  resultado: null
+};
+
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+
+    // 🚀 API
+    if (url.pathname === "/api") {
+      if (request.method === "POST") {
+        // ESP32 manda os dados (A, B e operacao)
+        const body = await request.json();
+        let resultado = null;
+        const { A, B, operacao } = body;
+
+        switch (operacao) {
+          case "sum":
+            resultado = A + B;
+            break;
+          case "sub":
+            resultado = A - B;
+            break;
+          case "mul":
+            resultado = A * B;
+            break;
+          case "div":
+            if (B === 0) {
+              return new Response(
+                JSON.stringify({ ok: false, error: "Divisão por zero!" }),
+                { headers: { "Content-Type": "application/json" }, status: 400 }
+              );
+            }
+            resultado = A / B;
+            break;
+          default:
+            return new Response(
+              JSON.stringify({ ok: false, error: "op deve ser sum|sub|mul|div." }),
+              { headers: { "Content-Type": "application/json" }, status: 400 }
+            );
+        }
+
+        // Salva os últimos dados recebidos + resultado
+        ultimoPayload = { A, B, operacao, resultado };
+
+        return new Response(JSON.stringify(ultimoPayload), {
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+
+      if (request.method === "GET") {
+        // Front pede os dados processados
+        return new Response(JSON.stringify(ultimoPayload), {
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+    }
+
+    // 🚀 Frontend HTML
+    if (url.pathname === "/" || url.pathname === "/index.html") {
+      const html = `
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8" />
+        <title>ESP32 Operações</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+          h1 { text-align: center; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+          th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
+          th { background: #007BFF; color: white; }
+        </style>
+      </head>
+      <body>
+        <h1>📊 Última Operação do ESP32</h1>
+        <table>
+          <thead>
+            <tr><th>A</th><th>B</th><th>Operação</th><th>Resultado</th></tr>
+          </thead>
+          <tbody id="tabela"></tbody>
+        </table>
+
+        <script>
+          async function atualizar() {
+            const res = await fetch('/api');
+            const data = await res.json();
+            document.getElementById("tabela").innerHTML = 
+              '<tr>' +
+                '<td>' + (data.A ?? '-') + '</td>' +
+                '<td>' + (data.B ?? '-') + '</td>' +
+                '<td>' + (data.operacao ?? '-') + '</td>' +
+                '<td>' + (data.resultado ?? '-') + '</td>' +
+              '</tr>';
+          }
+          atualizar();
+          setInterval(atualizar, 5000);
+        </script>
+      </body>
+      </html>
+      `;
+      return new Response(html, { headers: { "Content-Type": "text/html;charset=UTF-8" } });
+    }
+
+    return new Response("Rota não encontrada!", { status: 404 });
+  }
+};
+
+```
