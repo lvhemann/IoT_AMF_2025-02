@@ -395,3 +395,100 @@ export default {
 };
 
 ```
+
+```bash
+#include <WiFi.h>
+#include <HTTPClient.h>
+
+const char *ssid = "";     // 👉 seu Wi-Fi
+const char *password = ""; // 👉 senha
+
+// URL da API no seu Worker
+const char *serverName = "https://workers/api";
+
+// Valores de exemplo
+int A = 12;
+int B = 8;
+int op = 1;
+String operacao = "soma"; // pode ser: soma, sub, mul, div
+
+void setup()
+{
+  Serial.begin(115200);
+  delay(1000);
+
+  // Conectar ao Wi-Fi
+  Serial.println("Conectando ao Wi-Fi...");
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nWi-Fi conectado!");
+}
+
+void loop()
+{
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    HTTPClient http;
+
+    // Prepara a URL
+    if (op == 1)
+    {
+      String url = String(serverName) + "?A=" + A + "&B=" + B + "&operacao=" + operacao;
+      op = op + 1;
+    }
+    else if (op == 2)
+    {
+      operacao = "sub";
+      String url = String(serverName) + "?A=" + A + "&B=" + B + "&operacao=" + operacao;
+      op = op + 1;
+    } 
+    else if (op == 3)
+    {
+      operacao = "mul";
+      String url = String(serverName) + "?A=" + A + "&B=" + B + "&operacao=" + operacao;
+      op = op + 1;
+    }
+    else if (op == 4)
+    {
+      operacao = "div";
+      String url = String(serverName) + "?A=" + A + "&B=" + B + "&operacao=" + operacao;
+      op = 1;
+    } else {
+      op = 1;
+      operacao = "soma";
+    }
+
+    Serial.println("➡️ Enviando requisição: " + url);
+
+    http.begin(url);
+    int httpResponseCode = http.GET();
+
+    if (httpResponseCode > 0)
+    {
+      Serial.print("✅ HTTP ");
+      Serial.println(httpResponseCode);
+      String payload = http.getString();
+      Serial.println("📥 Resposta do Worker:");
+      Serial.println(payload);
+    }
+    else
+    {
+      Serial.print("❌ Erro HTTP: ");
+      Serial.println(httpResponseCode);
+    }
+
+    http.end();
+  }
+  else
+  {
+    Serial.println("⚠️ Wi-Fi desconectado");
+  }
+
+  delay(10000); // envia a cada 10 segundos
+}
+
+```
