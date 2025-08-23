@@ -397,6 +397,7 @@ export default {
 ```
 
 ```bash
+
 #include <WiFi.h>
 #include <HTTPClient.h>
 
@@ -405,7 +406,7 @@ const char *password = ""; // 👉 senha
 
 // URL da API no seu Worker
 const char *serverName = "https://workers/api";
-
+String url;
 // Valores de exemplo
 int A = 12;
 int B = 8;
@@ -433,31 +434,32 @@ void loop()
   if (WiFi.status() == WL_CONNECTED)
   {
     HTTPClient http;
-
     // Prepara a URL
     if (op == 1)
     {
-      String url = String(serverName) + "?A=" + A + "&B=" + B + "&operacao=" + operacao;
+      url = String(serverName) + "?A=" + A + "&B=" + B + "&operacao=" + operacao;
       op = op + 1;
     }
     else if (op == 2)
     {
       operacao = "sub";
-      String url = String(serverName) + "?A=" + A + "&B=" + B + "&operacao=" + operacao;
+      url = String(serverName) + "?A=" + A + "&B=" + B + "&operacao=" + operacao;
       op = op + 1;
-    } 
+    }
     else if (op == 3)
     {
       operacao = "mul";
-      String url = String(serverName) + "?A=" + A + "&B=" + B + "&operacao=" + operacao;
+      url = String(serverName) + "?A=" + A + "&B=" + B + "&operacao=" + operacao;
       op = op + 1;
     }
     else if (op == 4)
     {
       operacao = "div";
-      String url = String(serverName) + "?A=" + A + "&B=" + B + "&operacao=" + operacao;
+      url = String(serverName) + "?A=" + A + "&B=" + B + "&operacao=" + operacao;
       op = 1;
-    } else {
+    }
+    else
+    {
       op = 1;
       operacao = "soma";
     }
@@ -490,5 +492,6 @@ void loop()
 
   delay(10000); // envia a cada 10 segundos
 }
+
 
 ```
