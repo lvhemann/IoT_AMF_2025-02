@@ -295,9 +295,9 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // 🚀 API
+    // 🚀 API do ESP32 e Frontend
     if (url.pathname === "/api") {
-      // Se o ESP32 mandou parâmetros (A, B, operacao)
+      // ESP32 enviou parâmetros (A, B, operacao) na URL
       if (url.searchParams.has("A") && url.searchParams.has("B") && url.searchParams.has("operacao")) {
         const A = parseFloat(url.searchParams.get("A"));
         const B = parseFloat(url.searchParams.get("B"));
@@ -318,8 +318,7 @@ export default {
                 { headers: { "Content-Type": "application/json" }, status: 400 }
               );
             }
-            resultado = A / B;
-            break;
+            resultado = A / B; break;
           default:
             return new Response(
               JSON.stringify({ ok: false, error: "op deve ser soma|sub|mul|div." }),
@@ -327,22 +326,21 @@ export default {
             );
         }
 
-        // salva os últimos dados recebidos
+        // Atualiza os últimos dados
         ultimoPayload = { A, B, operacao, resultado };
 
-        // responde para o ESP32 também
         return new Response(JSON.stringify(ultimoPayload), {
           headers: { "Content-Type": "application/json" }
         });
       }
 
-      // 🚀 Se não recebeu parâmetros (caso do front), devolve o último payload
+      // Frontend pedindo último valor
       return new Response(JSON.stringify(ultimoPayload), {
         headers: { "Content-Type": "application/json" }
       });
     }
 
-    // 🚀 Página Web
+    // 🚀 Página HTML (frontend)
     if (url.pathname === "/" || url.pathname === "/index.html") {
       const html = `
       <!DOCTYPE html>
@@ -364,23 +362,27 @@ export default {
           <thead>
             <tr><th>A</th><th>B</th><th>Operação</th><th>Resultado</th></tr>
           </thead>
-          <tbody id="tabela"></tbody>
+          <tbody id="tabela">
+            <tr><td colspan="4">⏳ Aguardando dados do ESP32...</td></tr>
+          </tbody>
         </table>
 
         <script>
           async function atualizar() {
             const res = await fetch('/api');
             const data = await res.json();
-            document.getElementById("tabela").innerHTML =
-              '<tr>' +
-                '<td>' + (data.A ?? '-') + '</td>' +
-                '<td>' + (data.B ?? '-') + '</td>' +
-                '<td>' + (data.operacao ?? '-') + '</td>' +
-                '<td>' + (data.resultado ?? '-') + '</td>' +
-              '</tr>';
+            if (data.A !== null && data.B !== null) {
+              document.getElementById("tabela").innerHTML =
+                '<tr>' +
+                  '<td>' + data.A + '</td>' +
+                  '<td>' + data.B + '</td>' +
+                  '<td>' + data.operacao + '</td>' +
+                  '<td>' + data.resultado + '</td>' +
+                '</tr>';
+            }
           }
           atualizar();
-          setInterval(atualizar, 5000);
+          setInterval(atualizar, 5000); // Atualiza a cada 5s
         </script>
       </body>
       </html>
