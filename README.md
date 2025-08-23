@@ -296,15 +296,18 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // 🚀 API
+    // 🚀 API para ESP32 (GET) e Front
     if (url.pathname === "/api") {
-      if (request.method === "POST") {
-        // ESP32 manda os dados (A, B e operacao)
-        const body = await request.json();
+      // Se veio A, B e operacao na URL -> calcular
+      if (url.searchParams.has("A") && url.searchParams.has("B") && url.searchParams.has("operacao")) {
+        const A = parseFloat(url.searchParams.get("A"));
+        const B = parseFloat(url.searchParams.get("B"));
+        const operacao = url.searchParams.get("operacao");
+
         let resultado = null;
-        const { A, B, operacao } = body;
 
         switch (operacao) {
+          case "soma":
           case "sum":
             resultado = A + B;
             break;
@@ -325,12 +328,11 @@ export default {
             break;
           default:
             return new Response(
-              JSON.stringify({ ok: false, error: "op deve ser sum|sub|mul|div." }),
+              JSON.stringify({ ok: false, error: "op deve ser soma|sub|mul|div." }),
               { headers: { "Content-Type": "application/json" }, status: 400 }
             );
         }
 
-        // Salva os últimos dados recebidos + resultado
         ultimoPayload = { A, B, operacao, resultado };
 
         return new Response(JSON.stringify(ultimoPayload), {
@@ -338,12 +340,10 @@ export default {
         });
       }
 
-      if (request.method === "GET") {
-        // Front pede os dados processados
-        return new Response(JSON.stringify(ultimoPayload), {
-          headers: { "Content-Type": "application/json" }
-        });
-      }
+      // Se não veio nada, devolve o último payload salvo
+      return new Response(JSON.stringify(ultimoPayload), {
+        headers: { "Content-Type": "application/json" }
+      });
     }
 
     // 🚀 Frontend HTML
@@ -395,5 +395,6 @@ export default {
     return new Response("Rota não encontrada!", { status: 404 });
   }
 };
+
 
 ```
