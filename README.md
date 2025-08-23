@@ -284,7 +284,6 @@ export default {
 ```
 
 ```bash
-
 let ultimoPayload = {
   A: null,
   B: null,
@@ -296,27 +295,22 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // 🚀 API para ESP32 (GET) e Front
+    // 🚀 API
     if (url.pathname === "/api") {
-      // Se veio A, B e operacao na URL -> calcular
+      // Se o ESP32 mandou parâmetros (A, B, operacao)
       if (url.searchParams.has("A") && url.searchParams.has("B") && url.searchParams.has("operacao")) {
         const A = parseFloat(url.searchParams.get("A"));
         const B = parseFloat(url.searchParams.get("B"));
         const operacao = url.searchParams.get("operacao");
-
         let resultado = null;
 
         switch (operacao) {
-          case "soma":
-          case "sum":
-            resultado = A + B;
-            break;
+          case "soma": case "sum":
+            resultado = A + B; break;
           case "sub":
-            resultado = A - B;
-            break;
+            resultado = A - B; break;
           case "mul":
-            resultado = A * B;
-            break;
+            resultado = A * B; break;
           case "div":
             if (B === 0) {
               return new Response(
@@ -333,20 +327,22 @@ export default {
             );
         }
 
+        // salva os últimos dados recebidos
         ultimoPayload = { A, B, operacao, resultado };
 
+        // responde para o ESP32 também
         return new Response(JSON.stringify(ultimoPayload), {
           headers: { "Content-Type": "application/json" }
         });
       }
 
-      // Se não veio nada, devolve o último payload salvo
+      // 🚀 Se não recebeu parâmetros (caso do front), devolve o último payload
       return new Response(JSON.stringify(ultimoPayload), {
         headers: { "Content-Type": "application/json" }
       });
     }
 
-    // 🚀 Frontend HTML
+    // 🚀 Página Web
     if (url.pathname === "/" || url.pathname === "/index.html") {
       const html = `
       <!DOCTYPE html>
@@ -375,7 +371,7 @@ export default {
           async function atualizar() {
             const res = await fetch('/api');
             const data = await res.json();
-            document.getElementById("tabela").innerHTML = 
+            document.getElementById("tabela").innerHTML =
               '<tr>' +
                 '<td>' + (data.A ?? '-') + '</td>' +
                 '<td>' + (data.B ?? '-') + '</td>' +
@@ -395,6 +391,5 @@ export default {
     return new Response("Rota não encontrada!", { status: 404 });
   }
 };
-
 
 ```
