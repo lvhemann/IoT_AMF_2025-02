@@ -50,6 +50,87 @@ export default {
 }
 
 ```
+# Código com insert - List - get
+```bash
+export default {
+  async fetch(request, env) {
+    try {
+      const url = new URL(request.url);
+
+      // Inserir valor
+      if (url.pathname === "/insert" && request.method === "POST") {
+        let body;
+        try {
+          body = await request.json();
+        } catch (e) {
+          return new Response("Erro no JSON recebido: " + e.message, { status: 400 });
+        }
+
+        if (!env.KV_SENSOR) {
+          return new Response("ERRO: Binding KV_SENSOR não encontrado!", { status: 500 });
+        }
+
+        const nome = body.sensor || "temp";
+        const valor = body.valor || "0";
+        const timestamp = Date.now();
+
+        // último valor
+        await env.KV_SENSOR.put(`sensor:${nome}:last`, JSON.stringify({
+          valor: valor,
+          timestamp: timestamp
+        }));
+
+        // histórico
+        await env.KV_SENSOR.put(`sensor:${nome}:${timestamp}`, JSON.stringify({
+          valor: valor,
+          timestamp: timestamp
+        }));
+
+        return new Response(`OK: ${nome}=${valor}`);
+      }
+
+      // Obter último valor
+      if (url.pathname === "/get") {
+        const nome = url.searchParams.get("sensor");
+        if (!nome) return new Response("Informe ?sensor=temp", { status: 400 });
+
+        const data = await env.KV_SENSOR.get(`sensor:${nome}:last`, { type: "json" });
+        if (!data) return new Response("Nenhum valor encontrado", { status: 404 });
+
+        return new Response(JSON.stringify(data, null, 2), {
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+
+      // Listar histórico
+      if (url.pathname === "/list") {
+        const nome = url.searchParams.get("sensor");
+        if (!nome) return new Response("Informe ?sensor=temp", { status: 400 });
+
+        const { keys } = await env.KV_SENSOR.list({ prefix: `sensor:${nome}:` });
+
+        let historico = [];
+        for (let k of keys) {
+          if (k.name.endsWith(":last")) continue; // pula o "last"
+          const val = await env.KV_SENSOR.get(k.name, { type: "json" });
+          if (val) historico.push(val);
+        }
+
+        return new Response(JSON.stringify(historico, null, 2), {
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+
+      return new Response("Use POST /insert, GET /get?sensor=nome ou GET /list?sensor=nome");
+    } catch (e) {
+      return new Response("Erro inesperado: " + e.message, { status: 500 });
+    }
+  }
+}
+
+
+```
+
 
 # Inserção
 ```bash
@@ -65,6 +146,7 @@ Invoke-RestMethod -Uri "https://teste-kv.lvhemann.workers.dev/insert" `
 ```bash
 
 Invoke-RestMethod -Uri "https://teste-kv.lvhemann.workers.dev/get?sensor=temp"
+Invoke-RestMethod -Uri "https://kv-teste.lvhemann.workers.dev/list?sensor=temp"
 
 ```
 
