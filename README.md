@@ -3,29 +3,29 @@
 ## Criação de Banco D1
 
 ```bash  
- export default {
+export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
     try {
-      if (!env.teste01) {
+      if (!env.teste02) {
         return new Response("ERRO: Binding DB_SENSORES não encontrado!", { status: 500 });
       }
 
       if (url.pathname === "/init") {
-        await env.teste01.exec(`
-          CREATE TABLE IF NOT EXISTS sensores (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT,
-            valor REAL,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-          )
-        `);
+        await env.teste02.exec(
+          "CREATE TABLE IF NOT EXISTS sensores (" +
+          "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+          "nome TEXT, " +
+          "valor REAL, " +
+          "timestamp DATETIME DEFAULT CURRENT_TIMESTAMP" +
+          ")"
+        );
         return new Response("Tabela criada com sucesso!");
       }
 
       if (url.pathname === "/list") {
-        let { results } = await env.teste01
+        let { results } = await env.teste02
           .prepare("SELECT * FROM sensores ORDER BY timestamp DESC LIMIT 5")
           .all();
         return new Response(JSON.stringify(results, null, 2), {
@@ -39,6 +39,7 @@
     }
   }
 }
+
 
 ```
 
