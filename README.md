@@ -218,8 +218,6 @@ void loop() {
 
 ```
 
-<!--
-tudo daqui pra baixo não aparece no GitHub
 
 ## Enviar por JSON
  
@@ -460,4 +458,4 @@ void loop() {
 
 ```
 
--->
+
