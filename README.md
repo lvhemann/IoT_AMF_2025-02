@@ -102,7 +102,69 @@ void loop()
 }
 ```
 
+## Acelerometro MPU 6050
 
+```bash
+
+// Basic demo for accelerometer readings from Adafruit MPU6050
+
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+#include <Wire.h>
+
+Adafruit_MPU6050 mpu;
+
+// === Configuração da taxa de amostragem para o Edge Impulse ===
+const float SAMPLE_RATE_HZ = 25.0;                 // taxa de amostragem em Hz
+const unsigned long SAMPLE_INTERVAL_MS = 1000.0 / SAMPLE_RATE_HZ;
+unsigned long lastSampleTime = 0;
+
+
+void setup(void) {
+  Serial.begin(115200);
+  while (!Serial) {
+    delay(10); // will pause Zero, Leonardo, etc until serial console opens
+  }
+
+  // Try to initialize!
+  if (!mpu.begin()) {
+    Serial.println("Failed to find MPU6050 chip");
+    while (1) {
+      delay(10);
+    }
+  }
+
+  mpu.setAccelerometerRange(MPU6050_RANGE_16_G);
+  mpu.setGyroRange(MPU6050_RANGE_250_DEG);
+  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+  Serial.println("");
+  delay(100);
+}
+
+void loop()
+{
+  unsigned long now = millis();
+  if (now - lastSampleTime < SAMPLE_INTERVAL_MS) {
+    return; // ainda não é hora da próxima amostra
+  }
+  lastSampleTime = now;
+
+  // --- Leitura do acelerômetro ---
+  sensors_event_t a, g, temp;
+  float accX = a.acceleration.x;
+  float accY = a.acceleration.y;
+  float accZ = a.acceleration.z;
+
+  // === SAÍDA NO FORMATO PARA O EDGE IMPULSE DATA FORWARDER ===
+  // Somente números, separados por vírgula
+  Serial.print(accX, 6);
+  Serial.print(',');
+  Serial.print(accY, 6);
+  Serial.print(',');
+  Serial.print(accZ, 6);
+}
+
+```
 
 
 
