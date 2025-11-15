@@ -151,6 +151,8 @@ void loop()
 
   // --- Leitura do acelerômetro ---
   sensors_event_t a, g, temp;
+  mpu.getEvent(&a, &g, &temp);
+
   float accX = a.acceleration.x;
   float accY = a.acceleration.y;
   float accZ = a.acceleration.z;
@@ -163,7 +165,6 @@ void loop()
   Serial.print(',');
   Serial.print(accZ, 6);
 }
-
 ```
 
 
